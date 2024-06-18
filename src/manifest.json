@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Detalles de Pestañas",
+  "version": "1.0",
+  "description": "Muestra detalles de las pestañas abiertas y el tiempo de uso.",
+  "permissions": [
+    "alarms",
+    "storage",
+    "tabs",
+    "downloads"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
+
