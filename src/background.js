@@ -1,6 +1,7 @@
-console.log("webpage.js está corriendo");
+console.log("Background script running");
 
-let pageOn = true;
+let isAuthenticated = false; // Variable para rastrear el estado de autenticación
+let userId = null; // ID del usuario autenticado
 let listURLs = [];
 let points = 0;
 let dailyTracking = {};
@@ -8,60 +9,92 @@ let dailyTracking = {};
 const productiveDomains = ["jira.com", "udemy.com", "stackoverflow.com"];
 const leisureDomains = ["facebook.com", "youtube.com", "instagram.com"];
 
-// Listeners
-chrome.runtime.onMessage.addListener(NewWebPage);
+// Función para autenticar al usuario
+function authenticateUser(username, password) {
+    return new Promise((resolve, reject) => {
+        fetch(`http://localhost:3010/player/${username}/${password}`, {
+            method: 'GET',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data != "Error on GET player information.") {
+                // Guardar la ID del usuario en almacenamiento local y marcar como autenticado
+                chrome.storage.local.set({ userId: data.userId, isAuthenticated: true }, () => {
+                    console.log("User authenticated and data saved.");
+                    isAuthenticated = true;
+                    userId = data.userId;
+                    resolve({ isAuthenticated: true }); // Resolver la promesa con el estado de autenticación
+                });
+            } else {
+                console.log("Authentication failed");
+                resolve({ isAuthenticated: false }); // Resolver la promesa con autenticación fallida
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            reject(error); // Rechazar la promesa en caso de error
+        });
+    });
+}
+
+// Verificar el estado de autenticación al iniciar el navegador
+chrome.runtime.onStartup.addListener(() => {
+    chrome.storage.local.get(['isAuthenticated', 'userId'], (result) => {
+        isAuthenticated = result.isAuthenticated || false;
+        userId = result.userId || null;
+        if (!isAuthenticated) {
+            console.log("User not authenticated. Prompting for login.");
+        }
+    });
+});
+
+// Listener para mensajes del popup.js
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'login') {
+        // Llamar a authenticateUser y manejar la respuesta aquí
+        authenticateUser(message.username, message.password)
+            .then(authResult => {
+                sendResponse(authResult); // Enviar la respuesta
+            })
+            .catch(error => {
+                sendResponse({ isAuthenticated: false, error: error.message });
+            });
+        return true; // Indica que se responderá de forma asíncrona
+    } else if (message.type === 'checkAuth') {
+        // Asegurarse de responder con un objeto que tenga isAuthenticated
+        sendResponse({ isAuthenticated: isAuthenticated });
+    }
+    // No devolver true aquí porque no es asíncrono
+});
+
+// Listeners para administración de pestañas
 chrome.tabs.onUpdated.addListener(ChangePage);
 chrome.tabs.onRemoved.addListener(ClosePage);
 
-// Functions
-
-function NewWebPage(mensaje, sender, sendResponse) {
-    if (pageOn) {
-        if (mensaje.txt === "nuevapestaña") {
-            let timestamp = new Date();
-
-            let nuevaUrl = {
-                urlPage: sender.tab.url,
-                titlePage: sender.tab.title,
-                timeZero: timestamp,
-                timeFinal: "",
-                timeInAPage: "",
-                finish: 0,
-                idTabPage: sender.tab.id
-            };
-
-            listURLs.push(nuevaUrl);
-            chrome.storage.local.set({ listURLs: listURLs }); // Guardar lista en almacenamiento local
-        }
-    }
-}
-
 function ChangePage(tabId, changeInfo, tab) {
-    if (pageOn) {
-        if (changeInfo.status === "complete" && tab.status !== null) {
-            let timestamp = new Date();
+    if (isAuthenticated && changeInfo.status === "complete" && tab.status !== null) {
+        let timestamp = new Date();
 
-            for (let page of listURLs) {
-                if (page.idTabPage === tabId) {
-                    if (page.finish === 1) {
-                        page.timeFinal = timestamp;
-                        page.timeInAPage = page.timeFinal - page.timeZero; // milisegundos
-                        categorizeAndTrack(page.urlPage, page.timeInAPage);
-                        page.finish++;
-                    }
-                    if (page.finish === 0) {
-                        page.finish++;
-                    }
+        for (let page of listURLs) {
+            if (page.idTabPage === tabId) {
+                if (page.finish === 1) {
+                    page.timeFinal = timestamp;
+                    page.timeInAPage = page.timeFinal - page.timeZero; // milisegundos
+                    categorizeAndTrack(page.urlPage, page.timeInAPage);
+                    page.finish++;
+                }
+                if (page.finish === 0) {
+                    page.finish++;
                 }
             }
-
-            chrome.storage.local.set({ listURLs: listURLs, points: points, dailyTracking: dailyTracking }); // Guardar lista en almacenamiento local
         }
+
+        chrome.storage.local.set({ listURLs: listURLs, points: points, dailyTracking: dailyTracking }); // Guardar lista en almacenamiento local
     }
 }
 
 function ClosePage(tabId, removeInfo) {
-    if (pageOn) {
+    if (isAuthenticated) {
         let timestamp = new Date();
 
         for (let page of listURLs) {
@@ -137,5 +170,3 @@ function initializeDailyFile() {
 // Configurar las alarmas
 chrome.alarms.create("saveEvery15Minutes", { periodInMinutes: 15 }); // Guardar datos cada 15 minutos
 chrome.alarms.create("resetPoints", { when: Date.now() + (24 * 60 * 60 * 1000), periodInMinutes: 1440 }); // Se reinicia cada día
-
-chrome.alarms.onA

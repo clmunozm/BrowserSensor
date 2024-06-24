@@ -1,19 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "Detalles de Pestañas",
+  "name": "Browser Sensor",
   "version": "1.0",
   "description": "Muestra detalles de las pestañas abiertas y el tiempo de uso.",
   "permissions": [
-    "alarms",
-    "storage",
-    "tabs",
-    "downloads"
+      "alarms",
+      "storage",
+      "tabs",
+      "background"
   ],
   "background": {
-    "service_worker": "background.js"
+      "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
-  }
+      "default_popup": "popup.html",
+      "default_title": "Browser Sensor"
+  },
+  "host_permissions": [
+      "http://localhost:3010/*"
+  ]
 }
-
