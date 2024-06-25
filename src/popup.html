@@ -20,11 +20,11 @@
             max-width: 500px; /* Ancho máximo */
             margin: 0 auto; /* Centrar el formulario */
         }
-        #tabDetails {
+        #tabDetails, #capturedUrls {
             list-style: none;
             padding: 0;
         }
-        .tabItem {
+        .tabItem, .urlItem {
             margin-bottom: 10px;
             border: 1px solid #ccc;
             padding: 10px;
@@ -43,7 +43,15 @@
             <button type="submit">Login</button>
         </form>
     </div>
+    <div id="dataContainer">
+    <!-- Sección para mostrar pestañas activas -->
+    <h3>Pestañas Activas</h3>
     <ul id="tabDetails" class="hidden"></ul>
+    
+    <!-- Sección para mostrar URLs capturadas -->
+    <h3>URLs Capturadas</h3>
+    <ul id="capturedUrls" class="hidden"></ul>
+    </div>
     <script src="popup.js"></script>
 </body>
 </html>
