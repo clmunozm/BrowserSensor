@@ -9,8 +9,34 @@ let dailyTracking = {
     leisure: {}
 };
 
-const productiveDomains = ["www.atlassian.com", "www.udemy.com", "www.stackoverflow.com"];
-const leisureDomains = ["www.facebook.com", "www.youtube.com", "www.instagram.com"];
+let productiveDomains = [];
+let leisureDomains = [];
+
+// Función para obtener los dominios productivos y de ocio desde el servidor
+function fetchDomains() {
+    fetch('http://127.0.0.1:5000/productive_domains')
+        .then(response => response.json())
+        .then(data => {
+            productiveDomains = data;
+            console.log('Productive domains:', productiveDomains);
+        })
+        .catch(error => {
+            console.error('Error fetching productive domains:', error);
+        });
+
+    fetch('http://127.0.0.1:5000/leisure_domains')
+        .then(response => response.json())
+        .then(data => {
+            leisureDomains = data;
+            console.log('Leisure domains:', leisureDomains);
+        })
+        .catch(error => {
+            console.error('Error fetching leisure domains:', error);
+        });
+}
+
+// Llamar a fetchDomains al iniciar el script
+fetchDomains();
 
 // Función para autenticar al usuario
 function authenticateUser(username, password) {
@@ -23,8 +49,8 @@ function authenticateUser(username, password) {
             if (data != "Error on GET player information.") {
                 // Guardar la ID del usuario y marcar como autenticado
                 isAuthenticated = true;
-                userId = data.userId;
-                chrome.storage.local.set({ isAuthenticated: true, userId: data.userId, capturedUrls: {} });
+                userId = data;
+                chrome.storage.local.set({ isAuthenticated: true, userId: data, capturedUrls: {} });
                 resolve({ isAuthenticated: true });
             } else {
                 console.log("Authentication failed");
@@ -201,8 +227,6 @@ function updateTabData(tabId) {
     }
 }
 
-
-
 // Función para categorizar y seguir el tiempo en la URL
 function categorizeAndTrack(url, timeSpent) {
     try {
@@ -231,6 +255,9 @@ function categorizeAndTrack(url, timeSpent) {
                 chrome.storage.local.set({ points: points, capturedUrls: capturedUrls }, () => {
                     console.log(`Domain: ${domain}, Time Active: ${capturedUrls[domain].timeActive} seconds, Points: ${points}`);
                 });
+
+                // Enviar puntos a la API REST
+                sendPointsToAPI();
             }
         });
     } catch (e) {
@@ -238,8 +265,7 @@ function categorizeAndTrack(url, timeSpent) {
     }
 }
 
-
-
+// Función para actualizar las URLs capturadas
 function updateCapturedUrls(url) {
     try {
         let domain = new URL(url).hostname;
@@ -265,7 +291,65 @@ function updateCapturedUrls(url) {
     }
 }
 
+// Función para enviar puntos a la API REST
+function sendPointsToAPI() {
+    const postData = {
+        id_player: `${userId}`,
+        id_subattributes_conversion_sensor_endpoint: "4",
+        new_data: [`${points}`]
+    };
 
+    fetch('http://localhost:3002/adquired_subattribute/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(postData),
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        console.log('Points sent to API successfully');
+    })
+    .catch(error => {
+        console.error('Error sending points to API:', error);
+        // Agrega un controlador de errores aquí para manejar mejor los errores de red
+    });
+}
 
+// Función para actualizar puntos cada 1 minuto
+function updatePointsPeriodically() {
+    setInterval(() => {
+        chrome.storage.local.get('capturedUrls', (result) => {
+            const capturedUrls = result.capturedUrls || {};
 
+            // Iterar sobre todas las URLs capturadas
+            Object.keys(capturedUrls).forEach(domain => {
+                let tenSecondChunks = Math.floor(capturedUrls[domain].timeActive / 10); // Chunks de 10 segundos
+                let pointChange = tenSecondChunks - capturedUrls[domain].points;
 
+                // Actualizar puntos basados en los chunks de 10 segundos acumulados
+                if (productiveDomains.includes(domain)) {
+                    points += pointChange;
+                } else if (leisureDomains.includes(domain)) {
+                    points = Math.max(0, points - pointChange); // No bajar de 0 puntos
+                }
+
+                // Actualizar los puntos y chunks de 10 segundos registrados
+                capturedUrls[domain].points = tenSecondChunks;
+            });
+
+            // Guardar puntos actualizados en almacenamiento local
+            chrome.storage.local.set({ points: points, capturedUrls: capturedUrls }, () => {
+                console.log(`Points updated: ${points}`);
+            });
+
+            // Enviar puntos a la API REST
+            sendPointsToAPI();
+        });
+    }, 10000); // 60000 ms = 1 minuto
+}
+
+// Iniciar la función para actualizar puntos cada 1 minuto
+updatePointsPeriodically();
