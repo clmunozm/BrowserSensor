@@ -14,7 +14,7 @@ let leisureDomains = [];
 
 // Función para obtener los dominios productivos y de ocio desde el servidor
 function fetchDomains() {
-    fetch('http://127.0.0.1:5000/productive_domains')
+    fetch('http://127.0.0.1:5001/productive_domains')
         .then(response => response.json())
         .then(data => {
             productiveDomains = data;
@@ -24,7 +24,7 @@ function fetchDomains() {
             console.error('Error fetching productive domains:', error);
         });
 
-    fetch('http://127.0.0.1:5000/leisure_domains')
+    fetch('http://127.0.0.1:5001/leisure_domains')
         .then(response => response.json())
         .then(data => {
             leisureDomains = data;
@@ -255,9 +255,6 @@ function categorizeAndTrack(url, timeSpent) {
                 chrome.storage.local.set({ points: points, capturedUrls: capturedUrls }, () => {
                     console.log(`Domain: ${domain}, Time Active: ${capturedUrls[domain].timeActive} seconds, Points: ${points}`);
                 });
-
-                // Enviar puntos a la API REST
-                sendPointsToAPI();
             }
         });
     } catch (e) {
@@ -311,6 +308,7 @@ function sendPointsToAPI() {
             throw new Error('Network response was not ok');
         }
         console.log('Points sent to API successfully');
+        points = 0; // Reiniciar los puntos después de enviarlos
     })
     .catch(error => {
         console.error('Error sending points to API:', error);
@@ -346,7 +344,8 @@ function updatePointsPeriodically() {
             });
 
             // Enviar puntos a la API REST
-            sendPointsToAPI();
+            if (points > 0)
+                sendPointsToAPI();
         });
     }, 10000); // 60000 ms = 1 minuto
 }
