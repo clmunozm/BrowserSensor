@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.sendMessage({ type: 'checkAuth' }, (response) => {
         if (response && response.isAuthenticated) {
             showTabDetails(); // Mostrar los detalles si el usuario está autenticado
-            showCapturedUrls(); // Mostrar las URLs capturadas
+            startUpdatingCapturedUrls(); // Comenzar a actualizar las URLs capturadas en tiempo real
         } else {
             showLoginForm(); // Mostrar el formulario de login si no está autenticado
         }
@@ -20,13 +20,19 @@ document.addEventListener('DOMContentLoaded', function() {
         chrome.runtime.sendMessage({ type: 'login', username, password }, (response) => {
             if (response && response.isAuthenticated) {
                 showTabDetails(); // Mostrar los detalles si la autenticación es exitosa
-                showCapturedUrls(); // Mostrar las URLs capturadas
+                startUpdatingCapturedUrls(); // Comenzar a actualizar las URLs capturadas en tiempo real
             } else {
                 alert('Login failed. Please check your credentials.');
             }
         });
     });
 });
+
+// Función para iniciar la actualización periódica de las URLs capturadas
+function startUpdatingCapturedUrls() {
+    showCapturedUrls(); // Mostrar las URLs capturadas inicialmente
+    setInterval(showCapturedUrls, 100); // Actualizar cada segundo
+}
 
 // Función para mostrar las URLs capturadas y sus tiempos con puntos
 function showCapturedUrls() {
@@ -38,7 +44,8 @@ function showCapturedUrls() {
             Object.keys(capturedUrls).forEach(url => {
                 var li = document.createElement('li');
                 li.className = 'urlItem';
-                li.textContent = `URL: ${url}, Tiempo capturado: ${capturedUrls[url].timeActive}seg. - Puntos: ${capturedUrls[url].points}`;
+                const timeActiveRounded = Math.floor(capturedUrls[url].timeActive); // Redondear el tiempo
+                li.textContent = `URL: ${url}, Tiempo capturado: ${timeActiveRounded} seg. - Puntos: ${capturedUrls[url].points}`;
                 capturedUrlsContainer.appendChild(li);
             });
         } else {
@@ -49,13 +56,12 @@ function showCapturedUrls() {
     });
 }
 
-
 // Función para mostrar los detalles de las pestañas activas
 function showTabDetails() {
     document.getElementById('loginContainer').classList.add('hidden');
     document.getElementById('dataContainer').classList.remove('hidden');
     document.getElementById('tabDetails').classList.remove('hidden');
-    document.getElementById('capturedUrls').classList.remove('hidden'); // Ocultar sección de URLs capturadas
+    document.getElementById('capturedUrls').classList.remove('hidden'); // Mostrar sección de URLs capturadas
     
     chrome.tabs.query({}, function(tabs) {
         var tabDetails = document.getElementById('tabDetails');
@@ -75,12 +81,4 @@ function showLoginForm() {
     document.getElementById('dataContainer').classList.add('hidden');
     document.getElementById('tabDetails').classList.add('hidden');
     document.getElementById('capturedUrls').classList.add('hidden'); // Ocultar sección de URLs capturadas
-}
-
-// Función para formatear el tiempo en horas y minutos
-function formatTime(milliseconds) {
-    let totalSeconds = Math.floor(milliseconds / 1000);
-    let hours = Math.floor(totalSeconds / 3600);
-    let minutes = Math.floor((totalSeconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
 }

@@ -107,6 +107,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (message.type === 'getPoints') {
         // Enviar los puntos almacenados
         sendResponse({ points: points });
+    } else if (message.type === 'getRealTimeUpdates') {
+        // Enviar datos de URLs capturadas y puntos actualizados en tiempo real
+        chrome.storage.local.get(['capturedUrls', 'points'], (result) => {
+            sendResponse({
+                capturedUrls: result.capturedUrls || {},
+                points: result.points || 0
+            });
+        });
+        return true; // Indica que se responderá de forma asíncrona
     }
     // No devolver true aquí porque no es asíncrono
 });
@@ -238,7 +247,7 @@ function categorizeAndTrack(url, timeSpent) {
 
             if (capturedUrls[domain]) {
                 capturedUrls[domain].timeActive += timeSpentSeconds;
-                let tenSecondChunks = Math.floor(capturedUrls[domain].timeActive / 10); // Chunks de 10 segundos
+                let tenSecondChunks = Math.floor(capturedUrls[domain].timeActive / 30); // Chunks de 10 segundos
                 let pointChange = tenSecondChunks - capturedUrls[domain].points;
 
                 // Actualizar puntos basados en los chunks de 10 segundos acumulados
@@ -255,6 +264,10 @@ function categorizeAndTrack(url, timeSpent) {
                 chrome.storage.local.set({ points: points, capturedUrls: capturedUrls }, () => {
                     console.log(`Domain: ${domain}, Time Active: ${capturedUrls[domain].timeActive} seconds, Points: ${points}`);
                 });
+
+                if ( points > 0 ){
+                    sendPointsToAPI();
+                }
             }
         });
     } catch (e) {
@@ -295,7 +308,7 @@ function sendPointsToAPI() {
         id_subattributes_conversion_sensor_endpoint: "4",
         new_data: [`${points}`]
     };
-
+    points = 0; // Reiniciar los puntos después de enviarlos
     fetch('http://localhost:3002/adquired_subattribute/', {
         method: 'POST',
         headers: {
@@ -316,39 +329,18 @@ function sendPointsToAPI() {
     });
 }
 
-// Función para actualizar puntos cada 1 minuto
+
+// Función para actualizar puntos cada segundo
 function updatePointsPeriodically() {
     setInterval(() => {
-        chrome.storage.local.get('capturedUrls', (result) => {
-            const capturedUrls = result.capturedUrls || {};
-
-            // Iterar sobre todas las URLs capturadas
-            Object.keys(capturedUrls).forEach(domain => {
-                let tenSecondChunks = Math.floor(capturedUrls[domain].timeActive / 10); // Chunks de 10 segundos
-                let pointChange = tenSecondChunks - capturedUrls[domain].points;
-
-                // Actualizar puntos basados en los chunks de 10 segundos acumulados
-                if (productiveDomains.includes(domain)) {
-                    points += pointChange;
-                } else if (leisureDomains.includes(domain)) {
-                    points = Math.max(0, points - pointChange); // No bajar de 0 puntos
-                }
-
-                // Actualizar los puntos y chunks de 10 segundos registrados
-                capturedUrls[domain].points = tenSecondChunks;
-            });
-
-            // Guardar puntos actualizados en almacenamiento local
-            chrome.storage.local.set({ points: points, capturedUrls: capturedUrls }, () => {
-                console.log(`Points updated: ${points}`);
-            });
-
-            // Enviar puntos a la API REST
-            if (points > 0)
-                sendPointsToAPI();
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length > 0) {
+                let tabId = tabs[0].id;
+                updateTabData(tabId);
+            }
         });
-    }, 10000); // 60000 ms = 1 minuto
+    }, 1000); // 1000 ms = 1 segundo
 }
 
-// Iniciar la función para actualizar puntos cada 1 minuto
+// Iniciar la función para actualizar puntos cada segundo
 updatePointsPeriodically();
