@@ -25,7 +25,7 @@ The sensor is a Google Chrome extension that captures the open tabs in the brows
 
 ## User Guide
 * ### **Log in**
-    The first step to using the sensor is to log in with bGames.s
+    The first step to using the sensor is to log in with bGames.
 
 * ### **Capture open tabs**
     Once logged in, the sensor will immediately start capturing browser tabs, initiating a time counter when you are on a tab that is part of the productive tabs list obtained from the endpoint available.
