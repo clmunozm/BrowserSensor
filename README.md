@@ -10,8 +10,11 @@ The sensor is a Google Chrome extension that captures the open tabs in the brows
 ## Load unpacked extension
   * ### **Developer mode### **
     To load the extension, you first need to enable Developer Mode, which is available in the top right corner of the Extensions management tab.
+    
     ![imagen](https://github.com/user-attachments/assets/3497b3e4-60f1-4667-86de-99e0fcfb3c55)
+    
   * ### **Load unpacked### **
     Once Developer Mode is enabled, you can upload the extension using the `Load unpacked` button.
+    
     ![Captura de pantalla 2024-09-09 103647](https://github.com/user-attachments/assets/c92bda0f-f477-4b17-b9e5-6bcf1919ae17)
 
